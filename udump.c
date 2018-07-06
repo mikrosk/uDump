@@ -13,6 +13,8 @@
  *
  * You should have received a copy of the GNU General Public License
  * along with uDump.  If not, see <https://www.gnu.org/licenses/>.
+ *
+ * (c) 2018 Miro Kropacek; miro.kropacek@gmail.com
  */
 
 #include <mint/osbind.h>
@@ -22,30 +24,12 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-static uint16_t tos_version;
-static uint32_t tos_build_date;
-static uint8_t tos_country;
-static void get_tos_info(void)
+static long get_tos_header(void)
 {
-    OSHEADER* header = *((OSHEADER**)_sysbase);
-    tos_version = header->os_version;
-    tos_build_date = header->os_date;
-    tos_country = header->os_conf >> 1;
+    return *_sysbase;
 }
 
-static size_t tos_size;
-static char tos_filename[8+3+1+3+1];       // filename + possible "-{fr,de}" + "." + ext + nil
-static uintptr_t tos_base;
-static void save_tos(void)
-{
-    FILE* f = fopen(tos_filename, "wb");
-    if (f != NULL) {
-        fwrite((const void*)tos_base, 1, tos_size, f);
-        fclose(f);
-    }
-}
-
-static const char* countries[] = {
+static const char* const countries[] = {
     "us",
     "de",
     "fr",
@@ -60,7 +44,21 @@ static const size_t countries_size = sizeof(countries) / sizeof(countries[0]);
 
 int main(int argc, const char* argv[])
 {
-    Supexec(get_tos_info);
+    OSHEADER* tos_header;
+    uintptr_t tos_base;
+    uint16_t tos_version;
+    uint32_t tos_build_date;
+    uint8_t tos_country;
+    size_t tos_size = 0;
+    char tos_filename[8+3+1+3+1];       // filename + possible "-{fr,de}" + "." + ext + nil
+    char* error_str;
+    FILE* f;
+
+    tos_header = (OSHEADER*)(Supexec(get_tos_header));
+    tos_base = (uintptr_t)tos_header;
+    tos_version = tos_header->os_version;
+    tos_build_date = tos_header->os_date;
+    tos_country = tos_header->os_conf >> 1;
 
     printf("TOS %02x.%02x%s (%02x.%02x.%04x)\n",
         tos_version >> 8, tos_version & 0x00ff,
@@ -72,13 +70,10 @@ int main(int argc, const char* argv[])
         tos_country < countries_size ? countries[tos_country] : "");
 
     if (tos_version < 0x0106) {
-        tos_base = 0x00FC0000;
         tos_size = 192 * 1024;
     } else if (tos_version < 0x0300) {
-        tos_base = 0x00E00000;
         tos_size = 256 * 1024;
-    } else if (tos_version <= 0x0404) {
-        tos_base = 0x00E00000;
+    } else if (tos_version < 0x0500) {
         tos_size = 512 * 1024;
     }
 
@@ -91,9 +86,16 @@ int main(int argc, const char* argv[])
     printf("\n");
     printf("Saving %ld KiB to %s ... ", tos_size / 1024, tos_filename);
 
-    Supexec(save_tos);
+    f = fopen(tos_filename, "wb");
+    error_str = "fail";
+    if (f != NULL) {
+        if (fwrite((const void*)tos_base, 1, tos_size, f) == tos_size) {
+            error_str = "done";
+        }
+        fclose(f);
+    }
 
-    printf("done,\npress enter to exit.");
+    printf("%s,\npress enter to exit.", error_str);
     getchar();
     return EXIT_SUCCESS;
 }
