@@ -17,6 +17,8 @@
  * (c) 2018 Miro Kropacek; miro.kropacek@gmail.com
  */
 
+#include <getcookie.h>
+
 #include <mint/osbind.h>
 #include <mint/sysvars.h>
 
@@ -28,8 +30,13 @@ static long get_tos_header(void)
     return *_sysbase;
 }
 
+static long get_memory_size(void)
+{
+    return *phystop;
+}
+
 static const char country_codes[] =
-    "endefrukesitsefsgstrfinodksanlczhuplltrueebyuaskrobgslhrcscsmkgrlvilzaptbejpcnkpvninirmnnplakhidbd";
+    "usdefrukesitsefsgstrfinodksanlczhuplltrueebyuaskrobgslhrcscsmkgrlvilzaptbejpcnkpvninirmnnplakhidbd";
 static const char* countries[] = {
     "United States",
     "Germany",
@@ -90,6 +97,10 @@ int main(int argc, const char* argv[])
     uint16_t tos_version;
     uint32_t tos_build_date;
     uint8_t tos_country;
+    int is_emutos;
+    unsigned long mch_value = 0;
+    char* machine;
+    uint32_t machine_mem;
     size_t tos_size = 0;
     char tos_filename[8+1+3+1] = "filename.ext";
     char country_code[2+1] = "";
@@ -101,18 +112,72 @@ int main(int argc, const char* argv[])
     tos_version = tos_header->os_version;
     tos_build_date = tos_header->os_date;
     tos_country = tos_header->os_conf >> 1;
+    is_emutos = (uint32_t)tos_header->p_rsv2 == 0x45544f53UL;	/* 'ETOS' */
+
+    if (is_emutos) {
+        /*
+         * EmuTOS before 2011-04-27 had the date in format YYYY-MM-DD
+         * but TOS ROMs expect it to be in MM-DD-YYYY
+         */
+        if ((tos_build_date & 0xff000000UL) >= 0x19000000UL) {
+            tos_build_date = ((tos_build_date & 0xffff) << 16) | ((tos_build_date >> 16) & 0xffff);
+        }
+    }
+
+    getcookie(0x5f4d4348UL, &mch_value);	/* '_MCH' */
 
     if (tos_country < countries_size) {
         country_code[0] = country_codes[tos_country*2];
         country_code[1] = country_codes[tos_country*2+1];
         country_code[2] = '\0';
     }
+    
+    switch (mch_value) {
+        case 0x00000000UL:
+            machine = "Atari ST";
+            break;
+        case 0x00010000UL:
+            machine = "Atari STE";
+            break;
+        case 0x00010001UL:
+            machine = "ST Book";
+            break;
+        case 0x00010010UL:
+            machine = "Atari Mega STE";
+            break;
+        case 0x00010100UL:
+            machine = "Atari Sparrow";
+            break;
+        case 0x00020000UL:
+            machine = "Atari TT/Hades";
+            break;
+        case 0x00030000UL:
+            machine = "Atari Falcon";
+            break;
+        case 0x00040000UL:
+            machine = "Milan";
+            break;
+        case 0x00050000UL:
+            machine = "ARAnyM";
+            break;
+        default:
+            machine = "unknown";
+    }
+    
+    machine_mem = Supexec(get_memory_size);
 
-    printf("TOS %02x.%02x%s\r\n\r\nBuild date: %02x.%02x.%04x\r\nCountry:    %s\r\n",
+    printf("%s %02x.%02x%s\r\n\r\n"
+        "Build date: %02x.%02x.%04x\r\n"
+        "Country:    %s\r\n"
+        "Machine:    %s\r\n"
+        "Memory:     %d KiB\r\n",
+        is_emutos ? "EmuTOS" : "TOS",
         tos_version >> 8, tos_version & 0x00ff,
         country_code,
         (tos_build_date >> 16) & 0xff, tos_build_date >> 24, tos_build_date & 0xffff,
-        tos_country < countries_size ? countries[tos_country] : "n/a");
+        tos_country < countries_size ? countries[tos_country] : "n/a",
+        machine,
+        machine_mem / 1024);
 
     sprintf(tos_filename, "tos%03x%s.img", tos_version, country_code);
 
@@ -124,8 +189,15 @@ int main(int argc, const char* argv[])
         tos_size = 512 * 1024;
     }
 
+    if (is_emutos && tos_version == 0x0206) {
+        /* a humble attempt to correct EmuTOS ROM size ... */
+        if ((mch_value & 0xffff0000UL) > 0x00010000UL) {
+            tos_size = 512 * 1024;
+        }
+    }
+
     if (tos_size == 0) {
-        fprintf(stderr, "Couldn't determine TOS size,\r\npress enter to exit.");
+        fprintf(stderr, "Couldn't determine TOS size,\r\npress a key to exit.");
         Cconin();
         return 1;
     }
@@ -142,7 +214,7 @@ int main(int argc, const char* argv[])
         fclose(f);
     }
 
-    printf("%s,\r\npress enter to exit.", error_str);
+    printf("%s,\r\npress a key to exit.", error_str);
     Cconin();
     return 0;
 }
