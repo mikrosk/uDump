@@ -1,7 +1,8 @@
 TARGET = udump.tos
 
 CROSS = yes
-LIBCMINI = ../libcmini.git
+LIBCMINI_INCLUDE = ../libcmini.git/include
+LIBCMINI_BUILD = ../libcmini.git/build
 
 ifeq ($(CROSS),yes)
   CROSSPREFIX=m68k-atari-mint-
@@ -12,11 +13,11 @@ endif
 CC = $(CROSSPREFIX)gcc
 LD = $(CROSSPREFIX)ld
 
-CFLAGS = -m68000 -O2 -fomit-frame-pointer -Wall -I$(LIBCMINI)/include -nostdlib
-LDFLAGS = -s -L$(LIBCMINI) -lcmini -nostdlib -lgcc
+CFLAGS = -m68000 -O2 -fomit-frame-pointer -Wall -I$(LIBCMINI_INCLUDE) -nostdlib
+LDFLAGS = -s -L$(LIBCMINI_BUILD) -lcmini -nostdlib -lgcc
 
 $(TARGET): udump.c
-	$(CC) $(CFLAGS) -o $@ $(LIBCMINI)/startup.o  $< $(LDFLAGS)
+	$(CC) $(CFLAGS) -o $@ $(LIBCMINI_BUILD)/startup.o  $< $(LDFLAGS)
 
 clean:
 	rm -f *~ *.o $(TARGET)
