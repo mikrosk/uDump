@@ -99,6 +99,7 @@ int main(int argc, const char* argv[])
     uint8_t tos_country;
     int is_emutos;
     unsigned long mch_value = 0;
+    unsigned long ct60_value = 0;
     char* machine;
     uint32_t machine_mem;
     size_t tos_size = 0;
@@ -125,6 +126,7 @@ int main(int argc, const char* argv[])
     }
 
     getcookie(0x5f4d4348UL, &mch_value);	/* '_MCH' */
+    getcookie(0x43543630UL, &ct60_value);	/* 'CT60' */
 
     if (tos_country < countries_size) {
         country_code[0] = country_codes[tos_country*2];
@@ -152,7 +154,7 @@ int main(int argc, const char* argv[])
             machine = "Atari TT/Hades";
             break;
         case 0x00030000UL:
-            machine = "Atari Falcon";
+            machine = (ct60_value == 0) ? "Atari Falcon" : "Atari Falcon (CT60)";
             break;
         case 0x00040000UL:
             machine = "Milan";
@@ -187,6 +189,9 @@ int main(int argc, const char* argv[])
         tos_size = 256 * 1024;
     } else if (tos_version < 0x0500) {
         tos_size = 512 * 1024;
+        if (ct60_value != 0) {
+            tos_size *= 2;
+        }
     }
 
     if (is_emutos && tos_version == 0x0206) {
