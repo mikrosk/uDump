@@ -17,7 +17,7 @@ CFLAGS = -m68000 -O2 -fomit-frame-pointer -Wall -I$(LIBCMINI_INCLUDE) -nostdlib
 LDFLAGS = -s -L$(LIBCMINI_BUILD) -lcmini -nostdlib -lgcc
 
 $(TARGET): udump.c
-	$(CC) $(CFLAGS) -o $@ $(LIBCMINI_BUILD)/startup.o  $< $(LDFLAGS)
+	$(CC) $(CFLAGS) -o $@ $(LIBCMINI_BUILD)/crt0.o $< $(LDFLAGS)
 
 clean:
 	rm -f *~ *.o $(TARGET)

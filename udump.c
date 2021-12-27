@@ -14,10 +14,10 @@
  * You should have received a copy of the GNU General Public License
  * along with uDump.  If not, see <https://www.gnu.org/licenses/>.
  *
- * (c) 2018 Miro Kropacek; miro.kropacek@gmail.com
+ * (c) 2018-2021 Miro Kropacek; miro.kropacek@gmail.com
  */
 
-#include <getcookie.h>
+#include <mint/cookie.h>
 
 #include <mint/osbind.h>
 #include <mint/sysvars.h>
@@ -98,8 +98,8 @@ int main(int argc, const char* argv[])
     uint32_t tos_build_date;
     uint8_t tos_country;
     int is_emutos;
-    unsigned long mch_value = 0;
-    unsigned long ct60_value = 0;
+    long mch_value = 0;
+    long ct60_value = 0;
     char* machine;
     uint32_t machine_mem;
     size_t tos_size = 0;
@@ -125,8 +125,8 @@ int main(int argc, const char* argv[])
         }
     }
 
-    getcookie(0x5f4d4348UL, &mch_value);	/* '_MCH' */
-    getcookie(0x43543630UL, &ct60_value);	/* 'CT60' */
+    Getcookie(0x5f4d4348UL, &mch_value);	/* '_MCH' */
+    Getcookie(0x43543630UL, &ct60_value);	/* 'CT60' */
 
     if (tos_country < countries_size) {
         country_code[0] = country_codes[tos_country*2];
