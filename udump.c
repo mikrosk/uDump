@@ -24,6 +24,7 @@
 
 #include <stdint.h>
 #include <stdio.h>
+#include <string.h>
 
 static long get_tos_header(void)
 {
@@ -213,9 +214,24 @@ int main(int argc, const char* argv[])
     f = fopen(tos_filename, "wb");
     error_str = "fail";
     if (f != NULL) {
-        if (fwrite((const void*)tos_base, 1, tos_size, f) == tos_size) {
-            error_str = "done";
+        error_str = "done";
+
+        #define BUF_SIZE 16*1024
+        static uint8_t buf[BUF_SIZE];
+
+        for (const uint8_t* p = (const uint8_t*)tos_base; p < (const uint8_t*)tos_base + tos_size; p += BUF_SIZE) {
+            memcpy(buf, p, BUF_SIZE-1);
+            /* memcpy() usually uses movem.l which reads one extra cycle
+             * causing a bus error (!)
+             */
+            buf[BUF_SIZE-1] = p[BUF_SIZE-1];
+
+            if (fwrite(buf, sizeof(*buf), BUF_SIZE, f) != BUF_SIZE) {
+                error_str = "fail";
+                break;
+            }
         }
+
         fclose(f);
     }
 
